@@ -10,28 +10,32 @@ class Db:
     # Ouverture / fermeture de la base de données
     @classmethod
     def open(cls, database_file=DEFAULT_FILE):
-        if cls.connection is not None:
+        if cls.is_opened():
             raise RuntimeError("open: database is already opened")
         cls.connection = sqlite3.connect(database_file)
 
     @classmethod
     def close(cls):
-        if cls.connection is None:
+        if not cls.is_opened():
             raise RuntimeError("close: database is not opened")
         cls.connection.close()
         cls.connection = None
 
+    @classmethod
+    def is_opened(cls):
+        return (cls.connection is not None)
+
     # retourner un cursor
     @classmethod
     def get_cursor(cls):
-        if cls.connection is None:
+        if not cls.is_opened():
             raise RuntimeError("get_cursor: database is not opened")
         return cls.connection.cursor()
 
     # Execution de requetes
     @classmethod
     def query_insert(cls, query, data=None):
-        if cls.connection is None:
+        if not cls.is_opened():
             raise RuntimeError("query_commit: database is not opened")
         cursor = cls.connection.cursor()
         if data is None:
@@ -43,7 +47,7 @@ class Db:
 
     @classmethod
     def query_commit(cls, query, data=None):
-        if cls.connection is None:
+        if not cls.is_opened():
             raise RuntimeError("query_commit: database is not opened")
         cursor = cls.connection.cursor()
         if data is None:
@@ -54,6 +58,8 @@ class Db:
 
     @classmethod
     def query_all(cls, query, data=None):
+        if not cls.is_opened():
+            raise RuntimeError("query_all: database is not opened")
         cursor = cls.connection.cursor()
         if data is None:
             cursor.execute(query)
@@ -64,6 +70,8 @@ class Db:
 
     @classmethod
     def query_one(cls, query, data=None):
+        if not cls.is_opened():
+            raise RuntimeError("query_one: database is not opened")
         cursor = cls.connection.cursor()
         if data is None:
             cursor.execute(query)

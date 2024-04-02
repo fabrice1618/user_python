@@ -17,7 +17,15 @@ class Users:
     SQL_INDEX = "SELECT * FROM users"
     SQL_FIND_LOGIN = "SELECT id FROM users WHERE login = ?"
     SQL_EXIST = "SELECT COUNT(*) FROM users WHERE id = ?"
-
+    SQL_CREATE_TABLE = '''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                login TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL CHECK(role IN ('guest', 'admin', 'user'))
+            )
+            '''
+    
     @classmethod
     def create(cls, user):
         if not User.is_valid(user):
@@ -77,3 +85,7 @@ class Users:
             raise ValueError("Users.exist: id invalide")
         result = Db.query_one(cls.SQL_EXIST, (id,))
         return (result[0] > 0)
+
+    @classmethod
+    def create_table(cls):
+        Db.query_commit(cls.SQL_CREATE_TABLE)

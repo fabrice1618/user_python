@@ -32,8 +32,6 @@ classDiagram
         lettres_acceptees(): str
         validate_pwd_hash(pwd_hash: str): bool
         validate_password(password: str): bool
-        verify_password(password: str): bool
-        __hash_password(password: str): str
         __repr__(): str
         is_valid(user: User): bool
     }
@@ -52,6 +50,7 @@ classDiagram
         - SQL_INDEX: str
         - SQL_FIND_LOGIN: str
         - SQL_EXIST: str
+        - SQL_CREATE_TABLE: str
         create(user: User): None
         read(id: int): User
         update(user: User): None
@@ -60,6 +59,7 @@ classDiagram
         index_generator(): Generator
         find_login(login: str): int
         exist(id: int): bool
+        create_table(): None
     }
 
 ```

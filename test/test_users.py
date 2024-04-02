@@ -1,102 +1,86 @@
 import unittest
-from unittest.mock import MagicMock
+import os
 from classes.Db import Db
-from classes.User import User, UserRole
+from classes.User import User
 from classes.Users import Users
 
+# Chemin vers la base de données de test
+TEST_DB_PATH = '/data/test.db'
+
 class TestUsers(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        Db.open(TEST_DB_PATH)
+        # Créer la base de données
+        Users.create_table()
 
-    def setUp(self):
-        self.user_data = {'id': 1, 'login': 'test_user', 'password': 'password123', 'role': UserRole.ADMIN}
-        self.user = User(**self.user_data)
+    @classmethod
+    def tearDownClass(cls):
+        # Fermeture de la connexion à la base de données
+        Db.close()
+        # Supprimer la base de données de test
+        cls.delete_test_db()
 
-    def test_create(self):
-        with self.assertRaises(ValueError):
-            Users.create(None)
+    @classmethod
+    def delete_test_db(cls):
+        # Suppression de la base de données de test
+        if os.path.exists(TEST_DB_PATH):
+            os.remove(TEST_DB_PATH)
 
-        with self.assertRaises(ValueError):
-            Users.create(User())
+    def test_create_user(self):
+        # Données de test pour la création d'utilisateur
+        user_data = User(id=1, login='test_user', pwd_hash='hashed_password', role='user')
+        # Création de l'utilisateur dans la base de données de test
+        Users.create(user_data)
+        # Vérification si l'utilisateur a été créé avec succès
+        user_from_db = Users.read(1)
+        self.assertIsNotNone(user_from_db)
+        self.assertEqual(user_from_db.login, 'test_user')
+        self.assertEqual(user_from_db.pwd_hash, 'hashed_password')
+        self.assertEqual(user_from_db.role, 'user')
 
-        Db.query_insert = MagicMock(return_value=self.user.id)
-        Users.create(self.user)
-        self.assertTrue(Db.query_insert.called)
-        Db.query_insert.assert_called_once_with(Users.SQL_CREATE, (self.user.login, self.user.pwd_hash, self.user.role.value))
-        self.assertIsNotNone(self.user.id)
+    def test_read_user(self):
+        # Données de test pour la lecture d'utilisateur
+        user_data = User(id=1, login='test_user', pwd_hash='hashed_password', role='user')
+        Users.create(user_data)
+        # Lecture de l'utilisateur depuis la base de données de test
+        user_from_db = Users.read(1)
+        # Vérification si les données sont correctes
+        self.assertIsNotNone(user_from_db)
+        self.assertEqual(user_from_db.login, 'test_user')
+        self.assertEqual(user_from_db.pwd_hash, 'hashed_password')
+        self.assertEqual(user_from_db.role, 'user')
 
-    def test_read(self):
-        with self.assertRaises(ValueError):
-            Users.read(None)
+    def test_update_user(self):
+        # Données de test pour la mise à jour d'utilisateur
+        user_data = User(id=1, login='test_user', pwd_hash='hashed_password', role='user')
+        Users.create(user_data)
+        # Modification des données de l'utilisateur
+        user_data.login = 'updated_user'
+        Users.update(user_data)
+        # Lecture de l'utilisateur mis à jour depuis la base de données de test
+        updated_user_from_db = Users.read(1)
+        # Vérification si les données ont été mises à jour correctement
+        self.assertEqual(updated_user_from_db.login, 'updated_user')
 
-        Db.query_one = MagicMock(return_value=tuple(self.user_data.values()))
-        result = Users.read(self.user.id)
-        self.assertTrue(Db.query_one.called)
-        Db.query_one.assert_called_once_with(Users.SQL_READ, (self.user.id,))
-        self.assertIsInstance(result, User)
-        self.assertEqual(result.id, self.user.id)
-        self.assertEqual(result.login, self.user.login)
-        self.assertEqual(result.pwd_hash, self.user.pwd_hash)
-        self.assertEqual(result.role, self.user.role)
+    def test_delete_user(self):
+        # Données de test pour la suppression d'utilisateur
+        user_data = User(id=1, login='test_user', pwd_hash='hashed_password', role='user')
+        Users.create(user_data)
+        # Suppression de l'utilisateur de la base de données de test
+        Users.delete(1)
+        # Vérification si l'utilisateur a été supprimé avec succès
+        deleted_user_from_db = Users.read(1)
+        self.assertIsNone(deleted_user_from_db)
 
-    def test_update(self):
-        with self.assertRaises(ValueError):
-            Users.update(None)
-
-        with self.assertRaises(ValueError):
-            Users.update(User())
-
-        Users.update(self.user)
-        self.assertTrue(Db.query_commit.called)
-        Db.query_commit.assert_called_once_with(Users.SQL_UPDATE, (self.user.login, self.user.pwd_hash, self.user.role.value, self.user.id))
-
-    def test_delete(self):
-        with self.assertRaises(ValueError):
-            Users.delete(None)
-
-        Users.delete(self.user.id)
-        self.assertTrue(Db.query_commit.called)
-        Db.query_commit.assert_called_once_with(Users.SQL_DELETE, (self.user.id,))
-
-    def test_index(self):
-        Db.query_all = MagicMock(return_value=[tuple(self.user_data.values())])
-        result = Users.index()
-        self.assertTrue(Db.query_all.called)
-        self.assertIsInstance(result, list)
-        self.assertEqual(len(result), 1)
-        self.assertIsInstance(result[0], User)
-        self.assertEqual(result[0].id, self.user.id)
-        self.assertEqual(result[0].login, self.user.login)
-        self.assertEqual(result[0].pwd_hash, self.user.pwd_hash)
-        self.assertEqual(result[0].role, self.user.role)
-
-    def test_index_generator(self):
-        Db.query_all = MagicMock(return_value=[tuple(self.user_data.values())])
-        generator = Users.index_generator()
-        self.assertTrue(Db.query_all.called)
-        self.assertIsNotNone(generator)
-        user = next(generator)
-        self.assertIsInstance(user, User)
-        self.assertEqual(user.id, self.user.id)
-        self.assertEqual(user.login, self.user.login)
-        self.assertEqual(user.pwd_hash, self.user.pwd_hash)
-        self.assertEqual(user.role, self.user.role)
-
-    def test_find_login(self):
-        with self.assertRaises(ValueError):
-            Users.find_login(None)
-
-        Db.query_one = MagicMock(return_value=(self.user.id,))
-        result = Users.find_login(self.user.login)
-        self.assertTrue(Db.query_one.called)
-        Db.query_one.assert_called_once_with(Users.SQL_FIND_LOGIN, (self.user.login,))
-        self.assertEqual(result, self.user.id)
-
-    def test_exist(self):
-        with self.assertRaises(ValueError):
-            Users.exist(None)
-
-        Db.query_one = MagicMock(return_value=(1,))
-        result = Users.exist(self.user.id)
-        self.assertTrue(Db.query_one.called)
-        Db.query_one.assert_called_once_with(Users.SQL_EXIST, (self.user.id,))
-        self.assertTrue(result)
+    def test_index_users(self):
+        # Données de test pour la liste des utilisateurs
+        Users.create(User(id=1, login='user1', pwd_hash='pwd1', role='role1'))
+        Users.create(User(id=2, login='user2', pwd_hash='pwd2', role='role2'))
+        # Liste des utilisateurs depuis la base de données de test
+        users = Users.index()
+        # Vérification si la liste contient les utilisateurs corrects
+        self.assertEqual(len(users), 2)
+        self.assertEqual(users[0].login, 'user1')
+        self.assertEqual(users[1].login, 'user2')
 

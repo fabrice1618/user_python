@@ -1,6 +1,6 @@
-import hashlib
 import string
 from classes.UserRole import UserRole
+from classes.password import hash_password
 
 class User:
     """
@@ -19,7 +19,7 @@ class User:
         id, login, pwd_hash, role = data
         return cls(id=id, login=login, pwd_hash=pwd_hash, role=role)
 
-    # Mutator / Accessor
+    # Getter, setter id
     @property
     def id(self): 
         return self._id
@@ -33,6 +33,7 @@ class User:
         else:
             raise ValueError(f"Erreur valeur id: type={type(id)}, valeur={id}")
 
+    # Getter, setter login
     @property
     def login(self):
         return self._login
@@ -41,11 +42,12 @@ class User:
     def login(self, login):
         if login is None:
             self._login = None
-        if User.validate_login(login):
+        elif User.validate_login(login):
             self._login = login
         else:
             raise ValueError(f"Erreur valeur login: type={type(login)}, valeur=\'{login}\'")
 
+    # Getter, setter pwd_hash
     @property
     def pwd_hash(self):
         return self._pwd_hash
@@ -59,14 +61,16 @@ class User:
         else:
             raise ValueError(f"Erreur valeur pwd_hash: type={type(pwd_hash)}, value=\'{pwd_hash}\'")
 
+    # Maj password
     def set_password(self, password):
         if password is None:
             self._pwd_hash = None
         elif User.validate_password(password):
-            self._pwd_hash = User.__hash_password(password)
+            self._pwd_hash = hash_password(password)
         else:
             raise ValueError(f"Erreur valeur password: type={type(password)}, value=\'{password}\'")
-        
+
+    # Getter, setter role et role_str
     @property
     def role(self):
         return self._role
@@ -78,7 +82,10 @@ class User:
         elif UserRole.validate_role(role):
             self._role = role
         elif isinstance(role, str):
-            self._role = UserRole.from_str(role)
+            role_enum = UserRole.from_str(role)
+            if role_enum is None:
+                raise ValueError(f"Erreur valeur role: type={type(role)}, valeur=\'{role}\'")    
+            self._role = role_enum
         else:
             raise ValueError(f"Erreur valeur role: type={type(role)}, valeur=\'{role}\'")
 
@@ -135,16 +142,6 @@ class User:
             if not lettre in User.lettres_acceptees():
                 return False
         return True
-
-    def verify_password(self, password):
-        hashed_password = self.__hash_password(password)
-        return (self._pwd_hash == hashed_password)
-
-    @staticmethod
-    def __hash_password(password):
-        password_bytes = password.encode('utf-8')
-        hashed_password = hashlib.sha256(password_bytes).hexdigest()
-        return hashed_password
 
     # __repr__ et validation objet
     def __repr__(self):

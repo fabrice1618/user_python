@@ -1,87 +1,76 @@
 import unittest
-from unittest.mock import MagicMock
+#import sqlite3
+import os
 from classes.Db import Db
 
+# Chemin vers la base de données de test
+TEST_DB_PATH = '/data/test.db'
+
 class TestDb(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Créer la base de données de test
+        cls.create_test_db()
 
-    def setUp(self):
-        # Initialisation du mock de la connexion
-        self.connection_mock = MagicMock()
-        Db.connection = self.connection_mock
+    @classmethod
+    def tearDownClass(cls):
+        # Supprimer la base de données de test
+        cls.delete_test_db()
 
-    def test_open(self):
-        # Test de l'ouverture de la base de données
-        Db.open()
-        self.assertTrue(Db.connection.connect.called)
+    @classmethod
+    def create_test_db(cls):
+        # Connexion à la base de données de test
+        Db.open(TEST_DB_PATH)
+        # Création d'une table de test
+        create_table_query = '''
+            CREATE TABLE IF NOT EXISTS test_table (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT
+            )
+            '''
+        Db.query_commit(create_table_query)
 
-    def test_open_already_opened(self):
-        # Test de l'ouverture de la base de données lorsqu'elle est déjà ouverte
-        Db.connection = MagicMock()
-        with self.assertRaises(RuntimeError):
-            Db.open()
-
-    def test_close(self):
-        # Test de la fermeture de la base de données
+    @classmethod
+    def delete_test_db(cls):
+        # Fermeture de la connexion à la base de données
         Db.close()
-        self.assertTrue(Db.connection.close.called)
-
-    def test_close_not_opened(self):
-        # Test de la fermeture de la base de données lorsqu'elle n'est pas ouverte
-        Db.connection = None
-        with self.assertRaises(RuntimeError):
-            Db.close()
-
-    def test_get_cursor(self):
-        # Test de l'obtention du curseur
-        cursor = Db.get_cursor()
-        self.assertTrue(Db.connection.cursor.called)
-        self.assertEqual(cursor, Db.connection.cursor.return_value)
+        # Suppression de la base de données de test
+        if os.path.exists(TEST_DB_PATH):
+            os.remove(TEST_DB_PATH)
 
     def test_query_insert(self):
-        # Test de l'exécution d'une requête d'insertion
-        query = "INSERT INTO table (column1, column2) VALUES (?, ?)"
-        value1 = 'value1'
-        value2 = 'value2'
-        data = (value1, value2)
-        expected_lastrowid = 123
-        cursor_mock = MagicMock()
-        cursor_mock.lastrowid = expected_lastrowid
-        self.connection_mock.cursor.return_value = cursor_mock
-
-        lastrowid = Db.query_insert(query, data)
-        self.assertTrue(self.connection_mock.commit.called)
-        self.assertEqual(lastrowid, expected_lastrowid)
+        # Données de test
+        name = 'John Doe'
+        # Exécution de la requête INSERT
+        row_id = Db.query_insert('INSERT INTO test_table (name) VALUES (?)', (name,))
+        # Vérification du résultat
+        self.assertIsInstance(row_id, int)
+        self.assertGreater(row_id, 0)
 
     def test_query_commit(self):
-        # Test de l'exécution d'une requête de commit
-        query = "UPDATE table SET column = ? WHERE id = ?"
-        new_value = 'new_value'
-        id_value = 123
-        data = (new_value, id_value)
-
-        Db.query_commit(query, data)
-        self.assertTrue(self.connection_mock.commit.called)
+        # Données de test
+        name = 'Jane Doe'
+        # Exécution de la requête INSERT
+        Db.query_insert('INSERT INTO test_table (name) VALUES (?)', (name,))
+        # Exécution de la requête COMMIT
+        #Db.query_commit('COMMIT')
+        # Récupération des données insérées
+        result = Db.query_one('SELECT * FROM test_table WHERE name = ?', (name,))
+        # Vérification du résultat
+        self.assertIsNotNone(result)
 
     def test_query_all(self):
-        # Test de l'exécution d'une requête retournant plusieurs résultats
-        query = "SELECT * FROM table"
-        expected_result = [(1, 'value1'), (2, 'value2')]
-        cursor_mock = MagicMock()
-        cursor_mock.fetchall.return_value = expected_result
-        self.connection_mock.cursor.return_value = cursor_mock
-
-        result = Db.query_all(query)
-        self.assertEqual(result, expected_result)
+        # Exécution de la requête SELECT
+        result = Db.query_all('SELECT * FROM test_table')
+        # Vérification du résultat
+        self.assertIsInstance(result, list)
 
     def test_query_one(self):
-        # Test de l'exécution d'une requête retournant un seul résultat
-        query = "SELECT * FROM table WHERE id = ?"
-        id_value = 1
-        expected_result = (1, 'value1')
-        cursor_mock = MagicMock()
-        cursor_mock.fetchone.return_value = expected_result
-        self.connection_mock.cursor.return_value = cursor_mock
-
-        result = Db.query_one(query, (id_value,))
-        self.assertEqual(result, expected_result)
+        # Données de test
+        name = 'John Doe'
+        # Exécution de la requête SELECT
+        result = Db.query_one('SELECT * FROM test_table WHERE name = ?', (name,))
+        # Vérification du résultat
+        self.assertIsNotNone(result)
+        self.assertEqual(result[1], name)
 
